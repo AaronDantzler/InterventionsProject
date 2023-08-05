@@ -1,0 +1,438 @@
+---
+title: "normsSTM"
+author: "Aaron Dantzler"
+date: "2023-07-28"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# bing
+
+```{r}
+
+data <- read.csv(file = "D:\\Princeton\\BSPL\\norms_sent_bing.csv")
+head(data)
+
+```
+
+```{r}
+
+library(dplyr)
+
+new_df <- select(data, prolific, control, treatment, frq_topic_t1, frq_t1,
+                 frq_topic_t2, frq_t2, frq_topic_t3, frq_t3, sentimentt1,
+                 sentimentt2, sentimentt3)
+
+new_df <- rename(new_df, sentiment_t1 = sentimentt1, sentiment_t2 = sentimentt2,
+                 sentiment_t3 = sentimentt3)
+
+```
+
+```{r}
+
+frq_topic <- c(new_df$frq_topic_t1, new_df$frq_topic_t2, new_df$frq_topic_t3)
+
+frq <- c(new_df$frq_t1, new_df$frq_t2, new_df$frq_t3)
+
+stacked_df <- data.frame(frq_topic, frq)
+
+```
+
+```{r}
+
+time1 <- c(1)
+num_repetitions <- 616
+time1 <- rep(time1, times = num_repetitions)
+
+time2 <- c(2)
+time2 <- rep(time2, times = num_repetitions)
+
+time3 <- c(3)
+time3 <- rep(time3, times = num_repetitions)
+
+time <- c(time1, time2, time3)
+
+stacked_df$time <- time
+
+```
+
+```{r}
+
+stacked_df$prolific <- c(new_df$prolific, new_df$prolific, new_df$prolific)
+stacked_df$control <- c(new_df$control, new_df$control, new_df$control)
+stacked_df$treatment <- c(new_df$treatment, new_df$treatment, new_df$treatment)
+
+stacked_df$sentiment <- c(new_df$sentiment_t1, new_df$sentiment_t2, 
+                          new_df$sentiment_t3)
+```
+
+```{r}
+
+stacked_df$treated <- ifelse(((data$control == "climate") & 
+                              (data$frq_topic_t1 == 1 | data$frq_topic_t1 == 2)),
+                            0, 
+                      ifelse(((data$control == "health") & 
+                              (data$frq_topic_t1 == 4 | data$frq_topic_t1 == 5)),
+                            0,
+                       ifelse(((data$control == "politics") & 
+                              (data$frq_topic_t1 == 5 | data$frq_topic_t1 == 6)),
+                            0, 1)))
+
+```
+
+```{r}
+
+stacked_df$evidence <- ifelse((stacked_df$treated == 1) &
+                                (stacked_df$treatment == "evidence"), 1, 0)
+
+stacked_df$normevidence <- ifelse((stacked_df$treated == 1) &
+                                (stacked_df$treatment == "normevidence"), 1, 0)
+
+stacked_df$norm <- ifelse((stacked_df$treated == 1) &
+                                (stacked_df$treatment == "norm"), 1, 0)
+                         
+
+```
+
+```{r}
+
+# Create a new dataframe by dropping rows from df1 where ID is present in df2
+df2 <- data.frame(frq_topic = c(3, 4, 5, 6))
+climate_stacked_df <- subset(stacked_df, !(frq_topic %in% df2$frq_topic))
+
+df2 <- data.frame(frq_topic = c(1, 2, 5, 6))
+health_stacked_df <- subset(stacked_df, !(frq_topic %in% df2$frq_topic))
+
+df2 <- data.frame(frq_topic = c(1, 2, 3, 4))
+politics_stacked_df <- subset(stacked_df, !(frq_topic %in% df2$frq_topic))
+
+```
+
+```{r}
+set.seed(1000)
+sI = sessionInfo()
+sI
+```
+
+# All of the Data
+
+```{r}
+library("stm")
+data <- stacked_df
+processed <- textProcessor(data$frq, metadata = data)
+out <- prepDocuments(processed$documents, processed$vocab, processed$meta)
+docs <- out$documents
+vocab <- out$vocab
+meta <- out$meta
+```
+
+```{r}
+plotRemoved(processed$documents, lower.thresh = seq(1, 200, by = 100))
+```
+
+```{r}
+# change lower.thresh
+out <- prepDocuments(processed$documents, processed$vocab, processed$meta, 
+                     lower.thresh = 5)
+```
+
+```{r}
+# add content?
+frqModel <- stm(documents = out$documents, vocab = out$vocab, K = 15,
+                      prevalence =~ treated,
+                      content =~ sentiment,
+                      seed = 1000,
+                      max.em.its = 75, data = out$meta, init.type = "Spectral")
+```
+
+```{r}
+
+labelTopics(frqModel, 1:15)
+
+```
+
+```{r}
+thoughts2 <- findThoughts(frqModel, texts = data$frq, n = 1, 
+                          topics = 2)$docs[[1]]
+thoughts3 <- findThoughts(frqModel, texts = data$frq, n = 1, 
+                          topics = 3)$docs[[1]]
+thoughts5 <- findThoughts(frqModel, texts = data$frq, n = 1, 
+                          topics = 5)$docs[[1]]
+```
+
+```{r}
+par(mfrow = c(1, 2),mar = c(.5, .5, 1, .5))
+plotQuote(thoughts2, width = 30, main = "Topic 2")
+plotQuote(thoughts3, width = 30, main = "Topic 3")
+plotQuote(thoughts5, width = 30, main = "Topic 5")
+```
+
+```{r}
+prep <- estimateEffect(1:15 ~ treated,
+                      frqModel, meta = out$meta, uncertainty = "Global")
+summary(prep, topics=1:15)
+```
+
+```{r}
+par(fig = c(0, 1, 0, 1))  # Set the figure region (left, right, bottom, top)
+par(plt = c(0, 1, 0, 1))  # Set the plot region (left, right, bottom, top)
+plot(frqModel, type = "summary", xlim = c(0, .2))
+```
+
+```{r}
+plot(prep, covariate = "treated", topics = c(1:15),
+model = frqModel, method = "difference",
+cov.value1 = 1, cov.value2 = 0,
+xlab = "Not Treated ... Treated",
+main = "Effect of Treatment",
+xlim = c(-.15, .15), labeltype = "custom",
+custom.labels = c('Health/Stigma', 'Drunk Driver/Irresponsible', 'Reusable/Ban', 'Greedy/Profit', 'Democrat/Voting', 'Climate Change','Rent/Minimum Wage', 'Attack', 'Schizophrenia/Bipolar', 'Addict/Violent','Respect/Happier','History/Society','Spend/Want','Airplane/Travel', 'Problem'))
+```
+```{r}
+mod.out.corr <- topicCorr(frqModel)
+plot(mod.out.corr, topics = c(1:15), vlabels = c('Health/Stigma', 'Drunk Driver/Irresponsible', 'Reusable/Ban', 'Greedy/Profit', 'Democrat/Voting', 'Climate Change','Rent/Minimum Wage', 'Attack', 'Schizophrenia/Bipolar', 'Addict/Violent','Respect/Happier','History/Society','Spend/Want','Airplane/Travel', 'Problem'),  vertex.label.cex = 0.5)
+```
+
+# Climate Only
+
+```{r}
+library("stm")
+data <- climate_stacked_df
+processed <- textProcessor(data$frq, metadata = data)
+out <- prepDocuments(processed$documents, processed$vocab, processed$meta)
+docs <- out$documents
+vocab <- out$vocab
+meta <- out$meta
+```
+
+```{r}
+plotRemoved(processed$documents, lower.thresh = seq(1, 200, by = 100))
+```
+
+```{r}
+# change lower.thresh
+out <- prepDocuments(processed$documents, processed$vocab, processed$meta, 
+                     lower.thresh = 0)
+```
+
+```{r}
+# add content?
+frqModel <- stm(documents = out$documents, vocab = out$vocab, K = 10,
+                      prevalence =~ treated,
+                      content =~ sentiment,
+                      seed = 1000,
+                      max.em.its = 75, data = out$meta, init.type = "Spectral")
+```
+
+```{r}
+
+labelTopics(frqModel, 1:10)
+
+```
+
+```{r}
+thoughts3 <- findThoughts(frqModel, texts = data$frq, n = 1, 
+                          topics = 3)$docs[[1]]
+thoughts4 <- findThoughts(frqModel, texts = data$frq, n = 1, 
+                          topics = 4)$docs[[1]]
+thoughts5 <- findThoughts(frqModel, texts = data$frq, n = 1, 
+                          topics = 5)$docs[[1]]
+```
+
+```{r}
+par(mfrow = c(1, 2),mar = c(.5, .5, 1, .5))
+plotQuote(thoughts3, width = 30, main = "Topic 3")
+plotQuote(thoughts4, width = 30, main = "Topic 4")
+plotQuote(thoughts5, width = 30, main = "Topic 5")
+```
+
+```{r}
+prep <- estimateEffect(1:10 ~ treated,
+                      frqModel, meta = out$meta, uncertainty = "Global")
+summary(prep, topics=1:10)
+```
+
+```{r}
+par(fig = c(0, 1, 0, 1))  # Set the figure region (left, right, bottom, top)
+par(plt = c(0, 1, 0, 1))  # Set the plot region (left, right, bottom, top)
+plot(frqModel, type = "summary", xlim = c(0, .2))
+```
+
+```{r}
+plot(prep, covariate = "treated", topics = c(1:6, 8, 10),
+model = frqModel, method = "difference",
+cov.value1 = 1, cov.value2 = 0,
+xlab = "Not Treated ... Treated",
+main = "Effect of Treatment",
+xlim = c(-.15, .15), labeltype = "custom",
+custom.labels = c('Travel/Carbon', 'Reusable/Easy', 'Nonrenewable/Resource', 'Bad/Terrible', 'Greenhouse', 'Detriment','Trash/Hurt', 'Serious/Impossible'))
+```
+```{r}
+mod.out.corr <- topicCorr(frqModel)
+plot(mod.out.corr, topics = c(1:6, 8, 10), vlabels = c('Travel/Carbon', 'Reusable/Easy', 'Nonrenewable/Resource', 'Bad/Terrible', 'Greenhouse', 'Detriment','Trash/Hurt', 'Serious/Impossible'),  vertex.label.cex = 0.75)
+```
+
+# Health Only
+
+```{r}
+library("stm")
+data <- health_stacked_df
+processed <- textProcessor(data$frq, metadata = data)
+out <- prepDocuments(processed$documents, processed$vocab, processed$meta)
+docs <- out$documents
+vocab <- out$vocab
+meta <- out$meta
+```
+
+```{r}
+plotRemoved(processed$documents, lower.thresh = seq(1, 200, by = 100))
+```
+
+```{r}
+# change lower.thresh
+out <- prepDocuments(processed$documents, processed$vocab, processed$meta, 
+                     lower.thresh = 2)
+```
+
+```{r}
+# add content?
+frqModel <- stm(documents = out$documents, vocab = out$vocab, K = 15,
+                      prevalence =~ treated,
+                      content =~ sentiment,
+                      seed = 1000,
+                      max.em.its = 75, data = out$meta, init.type = "Spectral")
+```
+
+```{r}
+
+labelTopics(frqModel, 1:15)
+
+```
+
+```{r}
+thoughts3 <- findThoughts(frqModel, texts = data$frq, n = 1, 
+                          topics = 3)$docs[[1]]
+thoughts4 <- findThoughts(frqModel, texts = data$frq, n = 1, 
+                          topics = 4)$docs[[1]]
+thoughts5 <- findThoughts(frqModel, texts = data$frq, n = 1, 
+                          topics = 5)$docs[[1]]
+```
+
+```{r}
+par(mfrow = c(1, 2),mar = c(.5, .5, 1, .5))
+plotQuote(thoughts3, width = 30, main = "Topic 3")
+plotQuote(thoughts4, width = 30, main = "Topic 4")
+plotQuote(thoughts5, width = 30, main = "Topic 5")
+```
+
+```{r}
+prep <- estimateEffect(1:15 ~ treated,
+                      frqModel, meta = out$meta, uncertainty = "Global")
+summary(prep, topics=1:15)
+```
+
+```{r}
+par(fig = c(0, 1, 0, 1))  # Set the figure region (left, right, bottom, top)
+par(plt = c(0, 1, 0, 1))  # Set the plot region (left, right, bottom, top)
+plot(frqModel, type = "summary", xlim = c(0, .2))
+```
+
+```{r}
+plot(prep, covariate = "treated", topics = c(1:2, 4:15),
+model = frqModel, method = "difference",
+cov.value1 = 1, cov.value2 = 0,
+xlab = "Not Treated ... Treated",
+main = "Effect of Treatment",
+xlim = c(-.15, .15), labeltype = "custom",
+custom.labels = c('Homicide/Suffer', 'Wheel/Impossible', 'Technology', 'Belief', 'Confront/Problem', 'Unable/Obstacle','Jail/Damage', 'Vulnerable/Disease', 'Tragic/Drunk-Driving', 'Neglect/Wellbeing','Ticket/Scare','Schizophrenia/Bipolar','Uber/Lyft','Burnout/Work'))
+```
+
+```{r}
+mod.out.corr <- topicCorr(frqModel)
+plot(mod.out.corr, topics = c(1:2, 4:15), vlabels = c('Homicide/Suffer', 'Wheel/Impossible', 'Technology', 'Belief', 'Confront/Problem', 'Unable/Obstacle','Jail/Damage', 'Vulnerable/Disease', 'Tragic/Drunk-Driving', 'Neglect/Wellbeing','Ticket/Scare','Schizophrenia/Bipolar','Uber/Lyft','Burnout/Work'),  vertex.label.cex = 0.5)
+```
+
+# Politics Only
+
+```{r}
+library("stm")
+data <- politics_stacked_df
+processed <- textProcessor(data$frq, metadata = data)
+out <- prepDocuments(processed$documents, processed$vocab, processed$meta)
+docs <- out$documents
+vocab <- out$vocab
+meta <- out$meta
+```
+
+```{r}
+plotRemoved(processed$documents, lower.thresh = seq(1, 200, by = 100))
+```
+
+```{r}
+# change lower.thresh
+out <- prepDocuments(processed$documents, processed$vocab, processed$meta, 
+                     lower.thresh = 1)
+```
+
+```{r}
+# add content?
+frqModel <- stm(documents = out$documents, vocab = out$vocab, K = 15,
+                      prevalence =~ treated,
+                      content =~ sentiment,
+                      seed = 1000,
+                      max.em.its = 75, data = out$meta, init.type = "Spectral")
+```
+
+```{r}
+
+labelTopics(frqModel, 1:15)
+
+```
+
+```{r}
+thoughts3 <- findThoughts(frqModel, texts = data$frq, n = 1, 
+                          topics = 3)$docs[[1]]
+thoughts4 <- findThoughts(frqModel, texts = data$frq, n = 1, 
+                          topics = 4)$docs[[1]]
+thoughts5 <- findThoughts(frqModel, texts = data$frq, n = 1, 
+                          topics = 5)$docs[[1]]
+```
+
+```{r}
+par(mfrow = c(1, 2),mar = c(.5, .5, 1, .5))
+plotQuote(thoughts3, width = 30, main = "Topic 3")
+plotQuote(thoughts4, width = 30, main = "Topic 4")
+plotQuote(thoughts5, width = 30, main = "Topic 5")
+```
+
+```{r}
+prep <- estimateEffect(1:15 ~ treated,
+                      frqModel, meta = out$meta, uncertainty = "Global")
+summary(prep, topics=1:15)
+```
+
+```{r}
+par(fig = c(0, 1, 0, 1))  # Set the figure region (left, right, bottom, top)
+par(plt = c(0, 1, 0, 1))  # Set the plot region (left, right, bottom, top)
+plot(frqModel, type = "summary", xlim = c(0, .2))
+```
+
+```{r}
+plot(prep, covariate = "treated", topics = c(2:6, 8:9, 11:14),
+model = frqModel, method = "difference",
+cov.value1 = 1, cov.value2 = 0,
+xlab = "Not Treated ... Treated",
+main = "Effect of Treatment",
+xlim = c(-.15, .15), labeltype = "custom",
+custom.labels = c('Mail/Restrict', 'Democracy/Die', 'Poverty/Economy', 'Conservative', 'Worker/Demand', 'Drunk/Health',"Don't/Corrupt", 'Worst/Welfare', 'Turnout/Voter Issues', 'Economic/Unfair/Vote','Bill/Price'))
+```
+
+```{r}
+mod.out.corr <- topicCorr(frqModel)
+plot(mod.out.corr, topics = c(2:6, 8:9, 11:14), vlabels = c('Mail/Restrict', 'Democracy/Die', 'Poverty/Economy', 'Conservative', 'Worker/Demand', 'Drunk/Health',"Don't/Corrupt", 'Worst/Welfare', 'Turnout/Voter Issues', 'Economic/Unfair/Vote','Bill/Price'),  vertex.label.cex = 0.75)
+```
+
+

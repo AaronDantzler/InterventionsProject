@@ -1,0 +1,207 @@
+---
+title: "normsANOVA"
+author: "Aaron Dantzler"
+date: "2023-07-18"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+library(tidyverse)
+library(ggpubr)
+library(rstatix)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(magrittr)
+
+```
+
+```{r}
+
+data <- read.csv(file = "D:\\Princeton\\BSPL\\norms.csv")
+head(data)
+
+```
+
+```{r}
+
+data <- data[-nrow(data), ]
+
+```
+
+```{r}
+
+new_df <- data.frame(
+  prolific = data$prolific,
+  treatment = data$treatment
+)
+
+```
+
+```{r}
+
+new_df$t1_control <- ifelse(data$control == "climate", (data$importance_t1_1 + 
+                              data$importance_t1_2) / 2, 
+                      ifelse(data$control == "health", (data$importance_t1_3 + 
+                              data$importance_t1_4) / 2,
+                       ifelse(data$control == "politics", (data$importance_t1_5 +
+                              data$importance_t1_6) / 2, NA)))
+
+```
+
+```{r}
+
+new_df$t1_treat <- ifelse(data$control == "climate", (data$importance_t1_3 + 
+                              data$importance_t1_4 + data$importance_t1_5 +
+                                data$importance_t1_6) / 4, 
+                      ifelse(data$control == "health", (data$importance_t1_1 + 
+                              data$importance_t1_2 + data$importance_t1_5 +
+                                data$importance_t1_6) / 4,
+                       ifelse(data$control == "politics", (data$importance_t1_1 + 
+                              data$importance_t1_2 + data$importance_t1_3 +
+                                data$importance_t1_4) / 4, NA)))
+
+```
+
+```{r}
+
+new_df$t2_control <- ifelse(data$control == "climate", (data$importance_t2_1 + 
+                              data$importance_t2_2) / 2, 
+                      ifelse(data$control == "health", (data$importance_t2_3 + 
+                              data$importance_t2_4) / 2,
+                       ifelse(data$control == "politics", (data$importance_t2_5 +
+                              data$importance_t2_6) / 2, NA)))
+
+```
+
+```{r}
+
+new_df$t2_treat <- ifelse(data$control == "climate", (data$importance_t2_3 + 
+                              data$importance_t2_4 + data$importance_t2_5 +
+                                data$importance_t2_6) / 4, 
+                      ifelse(data$control == "health", (data$importance_t2_1 + 
+                              data$importance_t2_2 + data$importance_t2_5 +
+                                data$importance_t2_6) / 4,
+                       ifelse(data$control == "politics", (data$importance_t2_1 + 
+                              data$importance_t2_2 + data$importance_t2_3 +
+                                data$importance_t2_4) / 4, NA)))
+
+```
+
+```{r}
+
+new_df$t3_control <- ifelse(data$control == "climate", (data$importance_t3_1 + 
+                              data$importance_t3_2) / 2, 
+                      ifelse(data$control == "health", (data$importance_t3_3 + 
+                              data$importance_t3_4) / 2,
+                       ifelse(data$control == "politics", (data$importance_t3_5 +
+                              data$importance_t3_6) / 2, NA)))
+
+```
+
+```{r}
+
+new_df$t3_treat <- ifelse(data$control == "climate", (data$importance_t3_3 + 
+                              data$importance_t3_4 + data$importance_t3_5 +
+                                data$importance_t3_6) / 4, 
+                      ifelse(data$control == "health", (data$importance_t3_1 + 
+                              data$importance_t3_2 + data$importance_t3_5 +
+                                data$importance_t3_6) / 4,
+                       ifelse(data$control == "politics", (data$importance_t3_1 + 
+                              data$importance_t3_2 + data$importance_t3_3 +
+                                data$importance_t3_4) / 4, NA)))
+
+```
+
+```{r}
+
+data <- new_df
+
+```
+
+```{r}
+
+# Convert to long-form (prolific, treatment, time {t1, t2, t3}, condition {control, treat})
+
+df <- data %>%
+  pivot_longer(c('t1_control', 't2_control', 't3_control', 
+                 't1_treat', 't2_treat', 't3_treat'), names_to = 'tmp') %>%
+  group_by(prolific) %>% 
+  mutate('condition' = ifelse(grepl(pattern = 'control', x = tmp), 'control', 'treat')) %>%
+  mutate('time' = str_extract(pattern = 't\\d', string = tmp)) %>%
+  dplyr::select(-tmp)
+
+```
+
+```{r}
+
+# Convert to factor variables
+
+df$prolific <- as.factor(df$prolific)
+df$treatment <- as.factor(df$treatment)
+df$condition <- as.factor(df$condition)
+df$time <- as.factor(df$time)
+
+data <- data.frame(df)
+
+```
+
+```{r}
+
+# Summary statistics
+stats <- df %>%
+  group_by(condition, time) %>%
+  get_summary_stats(value, type = "mean_sd")
+stats
+
+```
+
+```{r}
+
+# Box plot
+bxp <- ggboxplot(
+  df, x = "treatment", y = "value",
+  color = "condition", palette = "jco",
+  facet.by = "time", short.panel.labs = FALSE
+)
+bxp
+
+```
+
+```{r}
+
+# Outliers
+outliers <- df %>%
+  group_by(treatment, condition, time) %>%
+  identify_outliers(value)
+outliers
+
+```
+
+```{r}
+
+# Normality 
+ggqqplot(df, "value", ggtheme = theme_bw()) +
+  facet_grid(condition + treatment ~ time, labeller = "label_both")
+
+```
+
+# Within Condition and Time
+
+```{r}
+
+# ANOVA
+res.aov <- anova_test(
+  data = data, dv = value, wid = prolific,
+  between = treatment, within = c(condition, time)
+)
+get_anova_table(res.aov)
+# head(df)
+
+```
+# The results indicate there there is not a statistically significant difference between the means of all of these groups.

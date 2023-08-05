@@ -1,0 +1,560 @@
+---
+title: "DTMSentimentAnalysis"
+author: "Aaron Dantzler"
+date: "2023-07-24"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# bing
+
+```{r}
+# Set working directory and load data
+dat <- read.csv("D:\\Princeton\\BSPL\\norms.csv")
+dat <- dat[-nrow(dat), ]
+
+## Sentiment Analysis
+# Use a lexicon (bing, afinn,or nrc) to identify words in your corpus.
+# This is a helpful vingette: https://cran.r-project.org/web/packages/tidytext/vignettes/tidying_casting.html
+```
+
+```{r}
+# 1. Load packages:
+library(tidytext) # contains sentiment lexicons
+library(tidyverse)
+
+#for corpus prep
+library(stringr)
+library(tm)
+library(stm)
+library(quanteda)
+library(textdata)
+
+#for visualizaiton
+library(ggplot2)
+library(psych)
+library(clipr)
+```
+
+```{r}
+# 2. Load lexicons:
+#   Inspect each individually to decide which one to use for your analysis
+afinn <- get_sentiments("afinn")
+bing <- get_sentiments("bing")
+# remove double words from bing
+bing <- bing[!(bing$word=="envious" & bing$sentiment=="positive"),]
+nrc <- get_sentiments("nrc")
+```
+
+# T1
+
+```{r}
+# 3. Prep data:
+dat_t1 <- dat %>% select(prolific,frq_t1,frq_t2,frq_t3) %>% 
+  pivot_longer(cols = c(frq_t1,frq_t2,frq_t3),names_to = "time",values_to = "text")
+dat_t1 <- dat_t1 %>% filter(time == 'frq_t1')
+dat_l2 <- dat_t1[,c(1,3)]
+names(dat_l2) <- c("doc_id","text")
+docs <- VCorpus(DataframeSource(dat_l2))
+```
+
+```{r}
+#inspect the corpus
+inspect(docs[[2]]) ##example, should return second document
+```
+
+```{r}
+#clean--> use what is relevant for your analysis
+# tm_map is buggy when you run it multiple times, so be sure to always save as a new object
+docs1 <- tm_map(docs, stripWhitespace)
+docs2 <- tm_map(docs1, content_transformer(tolower))
+docs3 <- tm_map(docs2, removeWords, stopwords("english"))
+docs4 <- tm_map(docs3, removePunctuation)
+# docs5 <- tm_map(docs4, removeNumbers) # Keep numbers because we want to see if they use statistics
+# docs6 <- tm_map(docs4, content_transformer(gsub), pattern = "climate change", replacement = # "climatechange", docs1) #remove space between cc
+# docs7 <- tm_map(docs6, content_transformer(gsub), pattern = "global warming", replacement = # "globalwarming", docs1)
+docs8 <- tm_map(docs4, content_transformer(gsub), pattern = "\"", replacement = "", docs1)
+docs9 <- tm_map(docs8, content_transformer(gsub), pattern = "'", replacement = "", docs1)
+rm(docs1,docs2,docs3,docs4,docs8)
+```
+
+```{r}
+# make dtm
+dtm <- DocumentTermMatrix(docs9)
+```
+
+```{r}
+# 4. Join to sentiment lexicon:
+#   Pick the lexicon that you want to use
+c <- tidy(dtm) ##input: a document-term matrix
+```
+
+```{r}
+#join the table to the bing lexicon
+c_sentiments <- c %>%
+  left_join(bing, by = c("term" = "word"))
+```
+
+```{r}
+#inspect the join
+c_sentiments
+```
+
+```{r}
+##aggregate sentiment to the document level
+c_sent_by_doct1 <- c_sentiments %>%
+  count(document, sentiment, wt = count) %>%
+  spread(sentiment, n, fill = 0) %>%
+  mutate(sentiment = positive - negative) # %>%
+  # arrange(sentiment)
+
+c_sent_by_doct1
+```
+
+# T2
+
+```{r}
+# 3. Prep data:
+dat_t2 <- dat %>% select(prolific,frq_t1,frq_t2,frq_t3) %>% 
+  pivot_longer(cols = c(frq_t1,frq_t2,frq_t3),names_to = "time",values_to = "text")
+dat_t2 <- dat_t2 %>% filter(time == 'frq_t2')
+dat_l2 <- dat_t2[,c(1,3)]
+names(dat_l2) <- c("doc_id","text")
+docs <- VCorpus(DataframeSource(dat_l2))
+```
+
+```{r}
+#inspect the corpus
+inspect(docs[[2]]) ##example, should return second document
+```
+
+```{r}
+#clean--> use what is relevant for your analysis
+# tm_map is buggy when you run it multiple times, so be sure to always save as a new object
+docs1 <- tm_map(docs, stripWhitespace)
+docs2 <- tm_map(docs1, content_transformer(tolower))
+docs3 <- tm_map(docs2, removeWords, stopwords("english"))
+docs4 <- tm_map(docs3, removePunctuation)
+# docs5 <- tm_map(docs4, removeNumbers) # Keep numbers because we want to see if they use statistics
+# docs6 <- tm_map(docs4, content_transformer(gsub), pattern = "climate change", replacement = # "climatechange", docs1) #remove space between cc
+# docs7 <- tm_map(docs6, content_transformer(gsub), pattern = "global warming", replacement = # "globalwarming", docs1)
+docs8 <- tm_map(docs4, content_transformer(gsub), pattern = "\"", replacement = "", docs1)
+docs9 <- tm_map(docs8, content_transformer(gsub), pattern = "'", replacement = "", docs1)
+rm(docs1,docs2,docs3,docs4,docs8)
+```
+
+```{r}
+# make dtm
+dtm <- DocumentTermMatrix(docs9)
+```
+
+```{r}
+# 4. Join to sentiment lexicon:
+#   Pick the lexicon that you want to use
+c <- tidy(dtm) ##input: a document-term matrix
+```
+
+```{r}
+#join the table to the bing lexicon
+c_sentiments <- c %>%
+  left_join(bing, by = c("term" = "word"))
+```
+
+```{r}
+#inspect the join
+c_sentiments
+```
+
+```{r}
+##aggregate sentiment to the document level
+c_sent_by_doct2 <- c_sentiments %>%
+  count(document, sentiment, wt = count) %>%
+  spread(sentiment, n, fill = 0) %>%
+  mutate(sentiment = positive - negative) # %>%
+  # arrange(sentiment)
+
+c_sent_by_doct2
+```
+
+# T3
+
+```{r}
+# 3. Prep data:
+dat_t3 <- dat %>% select(prolific,frq_t1,frq_t2,frq_t3) %>% 
+  pivot_longer(cols = c(frq_t1,frq_t2,frq_t3),names_to = "time",values_to = "text")
+dat_t3 <- dat_t3 %>% filter(time == 'frq_t3')
+dat_l2 <- dat_t3[,c(1,3)]
+names(dat_l2) <- c("doc_id","text")
+docs <- VCorpus(DataframeSource(dat_l2))
+```
+
+```{r}
+#inspect the corpus
+inspect(docs[[2]]) ##example, should return second document
+```
+
+```{r}
+#clean--> use what is relevant for your analysis
+# tm_map is buggy when you run it multiple times, so be sure to always save as a new object
+docs1 <- tm_map(docs, stripWhitespace)
+docs2 <- tm_map(docs1, content_transformer(tolower))
+docs3 <- tm_map(docs2, removeWords, stopwords("english"))
+docs4 <- tm_map(docs3, removePunctuation)
+# docs5 <- tm_map(docs4, removeNumbers) # Keep numbers because we want to see if they use statistics
+# docs6 <- tm_map(docs4, content_transformer(gsub), pattern = "climate change", replacement = # "climatechange", docs1) #remove space between cc
+# docs7 <- tm_map(docs6, content_transformer(gsub), pattern = "global warming", replacement = # "globalwarming", docs1)
+docs8 <- tm_map(docs4, content_transformer(gsub), pattern = "\"", replacement = "", docs1)
+docs9 <- tm_map(docs8, content_transformer(gsub), pattern = "'", replacement = "", docs1)
+rm(docs1,docs2,docs3,docs4,docs8)
+```
+
+```{r}
+# make dtm
+dtm <- DocumentTermMatrix(docs9)
+```
+
+```{r}
+# 4. Join to sentiment lexicon:
+#   Pick the lexicon that you want to use
+c <- tidy(dtm) ##input: a document-term matrix
+```
+
+```{r}
+#join the table to the bing lexicon
+c_sentiments <- c %>%
+  left_join(bing, by = c("term" = "word"))
+```
+
+```{r}
+#inspect the join
+c_sentiments
+```
+
+```{r}
+##aggregate sentiment to the document level
+c_sent_by_doct3 <- c_sentiments %>%
+  count(document, sentiment, wt = count) %>%
+  spread(sentiment, n, fill = 0) %>%
+  mutate(sentiment = positive - negative) # %>%
+  # arrange(sentiment)
+
+c_sent_by_doct3
+```
+
+```{r}
+c_sent_by_doct1 <- c_sent_by_doct1 %>% 
+  rename(negativet1 = negative, positivet1 = positive, neutralt1 = "<NA>", 
+         sentimentt1 = sentiment)
+c_sent_by_doct2 <- c_sent_by_doct2 %>% 
+  rename(negativet2 = negative, positivet2 = positive, neutralt2 = "<NA>", 
+         sentimentt2 = sentiment)
+c_sent_by_doct3 <- c_sent_by_doct3 %>% 
+  rename(negativet3 = negative, positivet3 = positive, neutralt3 = "<NA>", 
+         sentimentt3 = sentiment)
+```
+
+```{r}
+c_sent_by_doct2 <- c_sent_by_doct2 %>% select(-document)
+c_sent_by_doct3 <- c_sent_by_doct3 %>% select(-document)
+```
+
+```{r}
+sent_combined <- bind_cols(c_sent_by_doct1, c_sent_by_doct2, c_sent_by_doct3)
+```
+
+```{r}
+sent_combined <- sent_combined %>% select(-document)
+```
+
+
+```{r}
+dat_sent <- bind_cols(dat, sent_combined)
+```
+
+```{r}
+file_path <- "D:\\Princeton\\BSPL\\norms_sents_bing.csv"
+
+write.csv(dat_sent, file = file_path, row.names = FALSE)
+```
+
+# afinn
+
+```{r}
+# Set working directory and load data
+dat <- read.csv("D:\\Princeton\\BSPL\\norms.csv")
+dat <- dat[-nrow(dat), ]
+
+## Sentiment Analysis
+# Use a lexicon (bing, afinn,or nrc) to identify words in your corpus.
+# This is a helpful vingette: https://cran.r-project.org/web/packages/tidytext/vignettes/tidying_casting.html
+```
+
+```{r}
+# 1. Load packages:
+library(tidytext) # contains sentiment lexicons
+library(tidyverse)
+
+#for corpus prep
+library(stringr)
+library(tm)
+library(stm)
+library(quanteda)
+library(textdata)
+
+#for visualizaiton
+library(ggplot2)
+library(psych)
+library(clipr)
+```
+
+```{r}
+# 2. Load lexicons:
+#   Inspect each individually to decide which one to use for your analysis
+afinn <- get_sentiments("afinn")
+bing <- get_sentiments("bing")
+# remove double words from bing
+bing <- bing[!(bing$word=="envious" & bing$sentiment=="positive"),]
+nrc <- get_sentiments("nrc")
+```
+
+# T1
+
+```{r}
+# 3. Prep data:
+dat_t1 <- dat %>% select(prolific,frq_t1,frq_t2,frq_t3) %>% 
+  pivot_longer(cols = c(frq_t1,frq_t2,frq_t3),names_to = "time",values_to = "text")
+dat_t1 <- dat_t1 %>% filter(time == 'frq_t1')
+dat_l2 <- dat_t1[,c(1,3)]
+names(dat_l2) <- c("doc_id","text")
+docs <- VCorpus(DataframeSource(dat_l2))
+```
+
+```{r}
+#inspect the corpus
+inspect(docs[[2]]) ##example, should return second document
+```
+
+```{r}
+#clean--> use what is relevant for your analysis
+# tm_map is buggy when you run it multiple times, so be sure to always save as a new object
+docs1 <- tm_map(docs, stripWhitespace)
+docs2 <- tm_map(docs1, content_transformer(tolower))
+docs3 <- tm_map(docs2, removeWords, stopwords("english"))
+docs4 <- tm_map(docs3, removePunctuation)
+# docs5 <- tm_map(docs4, removeNumbers) # Keep numbers because we want to see if they use statistics
+# docs6 <- tm_map(docs4, content_transformer(gsub), pattern = "climate change", replacement = # "climatechange", docs1) #remove space between cc
+# docs7 <- tm_map(docs6, content_transformer(gsub), pattern = "global warming", replacement = # "globalwarming", docs1)
+docs8 <- tm_map(docs4, content_transformer(gsub), pattern = "\"", replacement = "", docs1)
+docs9 <- tm_map(docs8, content_transformer(gsub), pattern = "'", replacement = "", docs1)
+rm(docs1,docs2,docs3,docs4,docs8)
+```
+
+```{r}
+# make dtm
+dtm <- DocumentTermMatrix(docs9)
+```
+
+```{r}
+# 4. Join to sentiment lexicon:
+#   Pick the lexicon that you want to use
+c <- tidy(dtm) ##input: a document-term matrix
+```
+
+```{r}
+#join the table to the afinn lexicon
+c_sentiments <- c %>%
+  left_join(afinn, by = c("term" = "word"))
+
+# Replace NA with 0 in a specific column
+c_sentiments$value[is.na(c_sentiments$value)] <- 0
+
+```
+
+```{r}
+#inspect the join
+c_sentiments
+```
+
+```{r}
+##aggregate sentiment to the document level
+c_sent_by_doct1 <- c_sentiments %>%
+  group_by(document) %>%
+  summarise(combined_sentiment = sum(value))
+
+
+c_sent_by_doct1
+```
+
+# T2
+
+```{r}
+# 3. Prep data:
+dat_t2 <- dat %>% select(prolific,frq_t1,frq_t2,frq_t3) %>% 
+  pivot_longer(cols = c(frq_t1,frq_t2,frq_t3),names_to = "time",values_to = "text")
+dat_t2 <- dat_t2 %>% filter(time == 'frq_t2')
+dat_l2 <- dat_t2[,c(1,3)]
+names(dat_l2) <- c("doc_id","text")
+docs <- VCorpus(DataframeSource(dat_l2))
+```
+
+```{r}
+#inspect the corpus
+inspect(docs[[2]]) ##example, should return second document
+```
+
+```{r}
+#clean--> use what is relevant for your analysis
+# tm_map is buggy when you run it multiple times, so be sure to always save as a new object
+docs1 <- tm_map(docs, stripWhitespace)
+docs2 <- tm_map(docs1, content_transformer(tolower))
+docs3 <- tm_map(docs2, removeWords, stopwords("english"))
+docs4 <- tm_map(docs3, removePunctuation)
+# docs5 <- tm_map(docs4, removeNumbers) # Keep numbers because we want to see if they use statistics
+# docs6 <- tm_map(docs4, content_transformer(gsub), pattern = "climate change", replacement = # "climatechange", docs1) #remove space between cc
+# docs7 <- tm_map(docs6, content_transformer(gsub), pattern = "global warming", replacement = # "globalwarming", docs1)
+docs8 <- tm_map(docs4, content_transformer(gsub), pattern = "\"", replacement = "", docs1)
+docs9 <- tm_map(docs8, content_transformer(gsub), pattern = "'", replacement = "", docs1)
+rm(docs1,docs2,docs3,docs4,docs8)
+```
+
+```{r}
+# make dtm
+dtm <- DocumentTermMatrix(docs9)
+```
+
+```{r}
+# 4. Join to sentiment lexicon:
+#   Pick the lexicon that you want to use
+c <- tidy(dtm) ##input: a document-term matrix
+```
+
+```{r}
+#join the table to the afinn lexicon
+c_sentiments <- c %>%
+  left_join(afinn, by = c("term" = "word"))
+
+# Replace NA with 0 in a specific column
+c_sentiments$value[is.na(c_sentiments$value)] <- 0
+
+```
+
+```{r}
+#inspect the join
+c_sentiments
+```
+
+```{r}
+##aggregate sentiment to the document level
+c_sent_by_doct2 <- c_sentiments %>%
+  group_by(document) %>%
+  summarise(combined_sentiment = sum(value))
+
+
+c_sent_by_doct2
+
+```
+
+# T3
+
+```{r}
+# 3. Prep data:
+dat_t3 <- dat %>% select(prolific,frq_t1,frq_t2,frq_t3) %>% 
+  pivot_longer(cols = c(frq_t1,frq_t2,frq_t3),names_to = "time",values_to = "text")
+dat_t3 <- dat_t3 %>% filter(time == 'frq_t3')
+dat_l2 <- dat_t3[,c(1,3)]
+names(dat_l2) <- c("doc_id","text")
+docs <- VCorpus(DataframeSource(dat_l2))
+```
+
+```{r}
+#inspect the corpus
+inspect(docs[[2]]) ##example, should return second document
+```
+
+```{r}
+#clean--> use what is relevant for your analysis
+# tm_map is buggy when you run it multiple times, so be sure to always save as a new object
+docs1 <- tm_map(docs, stripWhitespace)
+docs2 <- tm_map(docs1, content_transformer(tolower))
+docs3 <- tm_map(docs2, removeWords, stopwords("english"))
+docs4 <- tm_map(docs3, removePunctuation)
+# docs5 <- tm_map(docs4, removeNumbers) # Keep numbers because we want to see if they use statistics
+# docs6 <- tm_map(docs4, content_transformer(gsub), pattern = "climate change", replacement = # "climatechange", docs1) #remove space between cc
+# docs7 <- tm_map(docs6, content_transformer(gsub), pattern = "global warming", replacement = # "globalwarming", docs1)
+docs8 <- tm_map(docs4, content_transformer(gsub), pattern = "\"", replacement = "", docs1)
+docs9 <- tm_map(docs8, content_transformer(gsub), pattern = "'", replacement = "", docs1)
+rm(docs1,docs2,docs3,docs4,docs8)
+```
+
+```{r}
+# make dtm
+dtm <- DocumentTermMatrix(docs9)
+```
+
+```{r}
+# 4. Join to sentiment lexicon:
+#   Pick the lexicon that you want to use
+c <- tidy(dtm) ##input: a document-term matrix
+```
+
+```{r}
+#join the table to the afinn lexicon
+c_sentiments <- c %>%
+  left_join(afinn, by = c("term" = "word"))
+
+# Replace NA with 0 in a specific column
+c_sentiments$value[is.na(c_sentiments$value)] <- 0
+
+```
+
+```{r}
+#inspect the join
+c_sentiments
+```
+
+```{r}
+##aggregate sentiment to the document level
+c_sent_by_doct3 <- c_sentiments %>%
+  group_by(document) %>%
+  summarise(combined_sentiment = sum(value))
+
+
+c_sent_by_doct3
+
+```
+
+```{r}
+c_sent_by_doct1 <- c_sent_by_doct1 %>% 
+  rename(combined_sentimentt1 = combined_sentiment)
+c_sent_by_doct2 <- c_sent_by_doct2 %>% 
+  rename(combined_sentimentt2 = combined_sentiment)
+c_sent_by_doct3 <- c_sent_by_doct3 %>% 
+  rename(combined_sentimentt3 = combined_sentiment)
+```
+
+```{r}
+c_sent_by_doct2 <- c_sent_by_doct2 %>% select(-document)
+c_sent_by_doct3 <- c_sent_by_doct3 %>% select(-document)
+```
+
+```{r}
+sent_combined <- bind_cols(c_sent_by_doct1, c_sent_by_doct2, c_sent_by_doct3)
+```
+
+```{r}
+sent_combined <- sent_combined %>% select(-document)
+```
+
+
+```{r}
+dat_sent <- bind_cols(dat, sent_combined)
+```
+
+```{r}
+file_path <- "D:\\Princeton\\BSPL\\norms_sents_afinn.csv"
+
+write.csv(dat_sent, file = file_path, row.names = FALSE)
+```

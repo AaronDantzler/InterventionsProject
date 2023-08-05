@@ -1,0 +1,235 @@
+---
+title: "SentimentRegressions"
+author: "Aaron Dantzler"
+date: "2023-07-26"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# afinn
+
+```{r}
+
+data <- read.csv(file = "D:\\Princeton\\BSPL\\norms_sent_afinn.csv")
+
+```
+
+```{r}
+
+library(dplyr)
+
+new_df <- select(data, prolific, control, treatment, frq_topic_t1,
+                 frq_topic_t2, frq_topic_t3, combined_sentimentt1,
+                 combined_sentimentt2, combined_sentimentt3)
+
+new_df <- rename(new_df, sentiment_t1 = combined_sentimentt1, sentiment_t2 = combined_sentimentt2,
+                 sentiment_t3 = combined_sentimentt3)
+
+```
+
+```{r}
+
+frq_topic <- c(new_df$frq_topic_t1, new_df$frq_topic_t2, new_df$frq_topic_t3)
+
+stacked_df <- data.frame(frq_topic)
+
+```
+
+```{r}
+
+time1 <- c(1)
+num_repetitions <- 616
+time1 <- rep(time1, times = num_repetitions)
+
+time2 <- c(2)
+time2 <- rep(time2, times = num_repetitions)
+
+time3 <- c(3)
+time3 <- rep(time3, times = num_repetitions)
+
+time <- c(time1, time2, time3)
+
+stacked_df$time <- time
+
+```
+
+```{r}
+
+stacked_df$prolific <- c(new_df$prolific, new_df$prolific, new_df$prolific)
+stacked_df$control <- c(new_df$control, new_df$control, new_df$control)
+stacked_df$treatment <- c(new_df$treatment, new_df$treatment, new_df$treatment)
+
+stacked_df$sentiment <- c(new_df$sentiment_t1, new_df$sentiment_t2, 
+                          new_df$sentiment_t3)
+```
+
+```{r}
+
+stacked_df$treated <- ifelse(((data$control == "climate") & 
+                              (data$frq_topic_t1 == 1 | data$frq_topic_t1 == 2)),
+                            0, 
+                      ifelse(((data$control == "health") & 
+                              (data$frq_topic_t1 == 4 | data$frq_topic_t1 == 5)),
+                            0,
+                       ifelse(((data$control == "politics") & 
+                              (data$frq_topic_t1 == 5 | data$frq_topic_t1 == 6)),
+                            0, 1)))
+
+```
+
+```{r}
+
+stacked_df$evidence <- ifelse((stacked_df$treated == 1) &
+                                (stacked_df$treatment == "evidence"), 1, 0)
+
+stacked_df$normevidence <- ifelse((stacked_df$treated == 1) &
+                                (stacked_df$treatment == "normevidence"), 1, 0)
+
+stacked_df$norm <- ifelse((stacked_df$treated == 1) &
+                                (stacked_df$treatment == "norm"), 1, 0)
+                         
+
+```
+
+```{r}
+
+model <- lm(sentiment ~ treated + treated:time + time, data = stacked_df)
+
+summary(model)
+
+```
+
+```{r}
+
+model <- lm(sentiment ~ norm + evidence + normevidence + 
+             normevidence:time + evidence:time + norm:time + time, 
+            data = stacked_df)
+
+summary(model)
+
+```
+```{r}
+
+model <- lm(sentiment ~ norm + evidence + normevidence, 
+            data = stacked_df)
+
+summary(model)
+
+```
+
+# bing
+
+```{r}
+
+data <- read.csv(file = "D:\\Princeton\\BSPL\\norms_sent_bing.csv")
+
+```
+
+```{r}
+
+library(dplyr)
+
+new_df <- select(data, prolific, control, treatment, frq_topic_t1,
+                 frq_topic_t2, frq_topic_t3, sentimentt1,
+                 sentimentt2, sentimentt3)
+
+new_df <- rename(new_df, sentiment_t1 = sentimentt1, sentiment_t2 = sentimentt2,
+                 sentiment_t3 = sentimentt3)
+
+```
+
+```{r}
+
+frq_topic <- c(new_df$frq_topic_t1, new_df$frq_topic_t2, new_df$frq_topic_t3)
+
+stacked_df <- data.frame(frq_topic)
+
+```
+
+```{r}
+
+time1 <- c(1)
+num_repetitions <- 616
+time1 <- rep(time1, times = num_repetitions)
+
+time2 <- c(2)
+time2 <- rep(time2, times = num_repetitions)
+
+time3 <- c(3)
+time3 <- rep(time3, times = num_repetitions)
+
+time <- c(time1, time2, time3)
+
+stacked_df$time <- time
+
+```
+
+```{r}
+
+stacked_df$prolific <- c(new_df$prolific, new_df$prolific, new_df$prolific)
+stacked_df$control <- c(new_df$control, new_df$control, new_df$control)
+stacked_df$treatment <- c(new_df$treatment, new_df$treatment, new_df$treatment)
+
+stacked_df$sentiment <- c(new_df$sentiment_t1, new_df$sentiment_t2, 
+                          new_df$sentiment_t3)
+```
+
+```{r}
+
+stacked_df$treated <- ifelse(((data$control == "climate") & 
+                              (data$frq_topic_t1 == 1 | data$frq_topic_t1 == 2)),
+                            0, 
+                      ifelse(((data$control == "health") & 
+                              (data$frq_topic_t1 == 4 | data$frq_topic_t1 == 5)),
+                            0,
+                       ifelse(((data$control == "politics") & 
+                              (data$frq_topic_t1 == 5 | data$frq_topic_t1 == 6)),
+                            0, 1)))
+
+```
+
+```{r}
+
+stacked_df$evidence <- ifelse((stacked_df$treated == 1) &
+                                (stacked_df$treatment == "evidence"), 1, 0)
+
+stacked_df$normevidence <- ifelse((stacked_df$treated == 1) &
+                                (stacked_df$treatment == "normevidence"), 1, 0)
+
+stacked_df$norm <- ifelse((stacked_df$treated == 1) &
+                                (stacked_df$treatment == "norm"), 1, 0)
+                         
+
+```
+
+```{r}
+
+model <- lm(sentiment ~ treated + treated:time + time, data = stacked_df)
+
+summary(model)
+
+```
+
+```{r}
+
+model <- lm(sentiment ~ norm + evidence + normevidence + 
+             normevidence:time + evidence:time + norm:time + time, 
+            data = stacked_df)
+
+summary(model)
+
+```
+```{r}
+
+model <- lm(sentiment ~ norm + evidence + normevidence, 
+            data = stacked_df)
+
+summary(model)
+
+```
+
+
+

@@ -1,0 +1,438 @@
+---
+title: "NormEvidenceInterventions"
+author: "Aaron Dantzler"
+date: "2023-07-17"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Data Processing
+
+```{r}
+
+library(readxl)
+
+file_path <- "D:\\Princeton\\BSPL\\Norm Interventions\\nabnexus\\allwaves.xlsx"
+
+dataframe <- read_excel(file_path)
+
+```
+
+```{r}
+
+dataframe <- dataframe[-nrow(dataframe), ]
+
+```
+
+
+```{r}
+
+library(dplyr)
+
+new_df <- select(dataframe, prolific, control, treatment, b_frq_topic_t1, 
+                 b_frq_t1, importance_t1_1, importance_t1_2, importance_t1_3, 
+                 importance_t1_4, importance_t1_5, importance_t1_6, 
+                 b_frq_topic_t2, b_frq_t2, importance_t2_1, importance_t2_2, 
+                 importance_t2_3, importance_t2_4, importance_t2_5, 
+                 importance_t2_6, b_frq_topic_t3, b_frq_t3, importance_t3_1, 
+                 importance_t3_2, importance_t3_3, importance_t3_4, 
+                 importance_t3_5, importance_t3_6)
+
+```
+
+```{r}
+
+library(stringr)
+
+new_df$frq_t1_character_count <- nchar(new_df$b_frq_t1)
+
+new_df$frq_t1_word_count <- str_count(new_df$b_frq_t1, "\\S+")
+
+new_df$frq_t2_character_count <- nchar(new_df$b_frq_t2)
+
+new_df$frq_t2_word_count <- str_count(new_df$b_frq_t2, "\\S+")
+
+new_df$frq_t3_character_count <- nchar(new_df$b_frq_t3)
+
+new_df$frq_t3_word_count <- str_count(new_df$b_frq_t3, "\\S+")
+
+```
+
+```{r}
+
+new_df <- select(new_df, prolific, control, treatment, b_frq_topic_t1, 
+                 b_frq_t1, frq_t1_character_count, frq_t1_word_count,
+                 importance_t1_1, importance_t1_2, importance_t1_3, 
+                 importance_t1_4, importance_t1_5, importance_t1_6, 
+                 b_frq_topic_t2, b_frq_t2, frq_t2_character_count,
+                 frq_t2_word_count, importance_t2_1, importance_t2_2, 
+                 importance_t2_3, importance_t2_4, importance_t2_5, 
+                 importance_t2_6, b_frq_topic_t3, b_frq_t3, 
+                 frq_t3_character_count, frq_t3_word_count, importance_t3_1, 
+                 importance_t3_2, importance_t3_3, importance_t3_4, 
+                 importance_t3_5, importance_t3_6)
+
+```
+
+```{r}
+
+new_df <- rename(new_df, frq_topic_t1 = b_frq_topic_t1, frq_t1 = b_frq_t1,
+                 frq_topic_t2 = b_frq_topic_t2, frq_t2 = b_frq_t2,
+                 frq_topic_t3 = b_frq_topic_t3, frq_t3 = b_frq_t3)
+
+```
+
+# Regressing Chosen Topic ~ Topic Importance
+
+## This includes regressions for each time period as well as one for everything combined.
+
+```{r}
+
+library(nnet)
+
+# Multinomial Logistic Regression 
+model <- multinom(frq_topic_t1 ~ importance_t1_1 + importance_t1_2 + 
+                          importance_t1_3 + importance_t1_4 + importance_t1_5 +
+                          importance_t1_6, data = new_df)
+
+summary(model)
+
+```
+
+```{r}
+
+# Multinomial Logistic Regression 
+model <- multinom(frq_topic_t2 ~ importance_t2_1 + importance_t2_2 + 
+                          importance_t2_3 + importance_t2_4 + importance_t2_5 +
+                          importance_t2_6, data = new_df)
+
+summary(model)
+
+```
+
+```{r}
+
+# Multinomial Logistic Regression 
+model <- multinom(frq_topic_t3 ~ importance_t3_1 + importance_t3_2 + 
+                          importance_t3_3 + importance_t3_4 + importance_t3_5 +
+                          importance_t3_6, data = new_df)
+
+summary(model)
+
+```
+
+```{r}
+
+frq_topic <- c(new_df$frq_topic_t1, new_df$frq_topic_t2, new_df$frq_topic_t3)
+
+importance_1 <- c(new_df$importance_t1_1, new_df$importance_t2_1, 
+                  new_df$importance_t3_1)
+
+importance_2 <- c(new_df$importance_t1_2, new_df$importance_t2_2, 
+                  new_df$importance_t3_2)
+
+importance_3 <- c(new_df$importance_t1_3, new_df$importance_t2_3, 
+                  new_df$importance_t3_3)
+
+importance_4 <- c(new_df$importance_t1_4, new_df$importance_t2_4, 
+                  new_df$importance_t3_4)
+
+importance_5 <- c(new_df$importance_t1_5, new_df$importance_t2_5, 
+                  new_df$importance_t3_5)
+
+importance_6 <- c(new_df$importance_t1_6, new_df$importance_t2_6, 
+                  new_df$importance_t3_6)
+
+stacked_df <- data.frame(frq_topic, importance_1, importance_2, importance_3,
+                         importance_4, importance_5, importance_6)
+
+```
+
+```{r}
+
+# Multinomial Logistic Regression 
+model <- multinom(frq_topic ~ importance_1 + importance_2 + 
+                          importance_3 + importance_4 + importance_5 +
+                          importance_6, data = stacked_df)
+
+summary(model)
+
+```
+## The interpretation of all of these regressions is that the higher the respondent ranks the importance of a topic, the more likely they are to choose it, which makes sense.
+
+# Regressing Chosen Topic ~ Time
+
+## Data Processing 
+
+```{r}
+
+time1 <- c(1)
+num_repetitions <- 616
+time1 <- rep(time1, times = num_repetitions)
+
+time2 <- c(2)
+time2 <- rep(time2, times = num_repetitions)
+
+time3 <- c(3)
+time3 <- rep(time3, times = num_repetitions)
+
+time <- c(time1, time2, time3)
+
+stacked_df$time <- time
+
+```
+
+```{r}
+
+# Multinomial Logistic Regression 
+model <- multinom(frq_topic ~ time, data = stacked_df)
+
+summary(model)
+
+```
+## Time does not seem to have a relationship with chosen topic.
+
+# Regressing Topic Importance ~ Time
+
+```{r}
+
+model <- lm(importance_1 ~ time, data = stacked_df)
+
+summary(model)
+
+```
+
+```{r}
+
+model <- lm(importance_2 ~ time, data = stacked_df)
+
+summary(model)
+
+```
+
+```{r}
+
+model <- lm(importance_3 ~ time, data = stacked_df)
+
+summary(model)
+
+```
+
+```{r}
+
+model <- lm(importance_4 ~ time, data = stacked_df)
+
+summary(model)
+
+```
+
+```{r}
+
+model <- lm(importance_5 ~ time, data = stacked_df)
+
+summary(model)
+
+```
+
+```{r}
+
+model <- lm(importance_6 ~ time, data = stacked_df)
+
+summary(model)
+
+```
+## Time does not seem to effect the importance of each topic.
+
+# Regressing Chosen Topic on Treatment
+
+## Data Processing
+
+```{r}
+
+control <- new_df$control
+num_repititions <- 3
+control <- rep(control, times = num_repititions)
+
+treatment <- new_df$treatment
+treatment <- rep(treatment, times = num_repititions)
+
+stacked_df$control <- control
+stacked_df$treatment <- treatment
+
+```
+
+```{r}
+
+stacked_df$climatenorm <- ifelse(stacked_df$control != "climate" & 
+                                   stacked_df$treatment == "norm", 1, 0)
+
+stacked_df$climateevidence <- ifelse(stacked_df$control != "climate" & 
+                                   stacked_df$treatment == "evidence", 1, 0)
+
+stacked_df$climatenormevidence <- ifelse(stacked_df$control != "climate" & 
+                                   stacked_df$treatment == "normevidence", 1, 0)
+
+stacked_df$healthnorm <- ifelse(stacked_df$control != "health" & 
+                                   stacked_df$treatment == "norm", 1, 0)
+
+stacked_df$healthevidence <- ifelse(stacked_df$control != "health" & 
+                                   stacked_df$treatment == "evidence", 1, 0)
+
+stacked_df$healthnormevidence <- ifelse(stacked_df$control != "health" & 
+                                   stacked_df$treatment == "normevidence", 1, 0)
+
+stacked_df$politicsnorm <- ifelse(stacked_df$control != "politics" & 
+                                   stacked_df$treatment == "norm", 1, 0)
+
+stacked_df$politicsevidence <- ifelse(stacked_df$control != "politics" & 
+                                   stacked_df$treatment == "evidence", 1, 0)
+
+stacked_df$politicsnormevidence <- ifelse(stacked_df$control != "politics" & 
+                                   stacked_df$treatment == "normevidence", 1, 0)
+
+```
+
+## 1-2: Climate, 3-4: Health, 5-6: Politics
+
+```{r}
+
+model <- lm(importance_1 ~ climatenorm + climateevidence + climatenormevidence +
+              healthnorm + healthevidence + healthnormevidence + politicsnorm +
+              politicsevidence + politicsnormevidence, data = stacked_df)
+
+summary(model)
+
+```
+
+```{r}
+
+model <- lm(importance_2 ~ climatenorm + climateevidence + climatenormevidence +
+              healthnorm + healthevidence + healthnormevidence + politicsnorm +
+              politicsevidence + politicsnormevidence, data = stacked_df)
+
+summary(model)
+
+```
+
+```{r}
+
+model <- lm(importance_3 ~ climatenorm + climateevidence + climatenormevidence +
+              healthnorm + healthevidence + healthnormevidence + politicsnorm +
+              politicsevidence + politicsnormevidence, data = stacked_df)
+
+summary(model)
+
+```
+
+```{r}
+
+model <- lm(importance_4 ~ climatenorm + climateevidence + climatenormevidence +
+              healthnorm + healthevidence + healthnormevidence + politicsnorm +
+              politicsevidence + politicsnormevidence, data = stacked_df)
+
+summary(model)
+
+```
+
+```{r}
+
+model <- lm(importance_5 ~ climatenorm + climateevidence + climatenormevidence +
+              healthnorm + healthevidence + healthnormevidence + politicsnorm +
+              politicsevidence + politicsnormevidence, data = stacked_df)
+
+summary(model)
+
+```
+
+```{r}
+
+model <- lm(importance_6 ~ climatenorm + climateevidence + climatenormevidence +
+              healthnorm + healthevidence + healthnormevidence + politicsnorm +
+              politicsevidence + politicsnormevidence, data = stacked_df)
+
+summary(model)
+
+```
+## For importance_1, we expect climatenorm, climateevidence, and climatenormevidence to increase importance_1 and so on for the other topics. However, we do not see this relationship. 
+
+```{r}
+
+# Multinomial Logistic Regression 
+model <- multinom(frq_topic ~ climatenorm + climateevidence + 
+                    climatenormevidence + healthnorm + healthevidence +
+                    healthnormevidence + politicsnorm + politicsevidence + 
+                    politicsnormevidence, data = stacked_df)
+
+summary(model)
+
+```
+
+### Baseline is Climate Control, Evidence Control
+
+```{r}
+
+# Multinomial Logistic Regression 
+model <- multinom(frq_topic ~ control + control:treatment, data = stacked_df)
+
+summary(model)
+
+```
+
+## Data Processing
+
+```{r}
+
+stacked_df$importance <- ifelse(stacked_df$frq_topic == "1", stacked_df$importance_1,
+                        ifelse(stacked_df$frq_topic == "2", stacked_df$importance_2,
+                               ifelse(stacked_df$frq_topic == "3", stacked_df$importance_3,
+                                      ifelse(stacked_df$frq_topic == "4", stacked_df$importance_4,
+                                             ifelse(stacked_df$frq_topic == "5", stacked_df$importance_5,
+                                                    ifelse(stacked_df$frq_topic == "6", stacked_df$importance_6, NA))))))
+
+```
+
+# Regressing Topic Chosen on Topic Importance
+
+```{r}
+
+# Multinomial Logistic Regression 
+model <- multinom(frq_topic ~ importance, data = stacked_df)
+
+summary(model)
+
+```
+
+```{r}
+
+stacked_df$t1_treated <- ifelse(stacked_df$control == "climate", 0, 1)
+stacked_df$t2_treated <- ifelse(stacked_df$control == "climate", 0, 1)
+
+stacked_df$t3_treated <- ifelse(stacked_df$control == "health", 0, 1)
+stacked_df$t4_treated <- ifelse(stacked_df$control == "health", 0, 1)
+
+stacked_df$t5_treated <- ifelse(stacked_df$control == "politics", 0, 1)
+stacked_df$t6_treated <- ifelse(stacked_df$control == "politics", 0, 1)
+
+```
+
+```{r}
+
+# Multinomial Logistic Regression 
+model <- multinom(frq_topic ~ t1_treated + t2_treated + t3_treated + 
+                    t4_treated + t5_treated + t6_treated, data = stacked_df)
+
+summary(model)
+
+```
+## For this regression, we expect to see t2_treated to significantly predict topic 1 and 2 treated and so on. However, we do not see this relationship.
+
+```{r}
+
+# file_path <- "D:\\Princeton\\BSPL\\norms.csv"
+
+# write.csv(new_df, file = file_path, row.names = FALSE)
+
+```

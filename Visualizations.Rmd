@@ -1,0 +1,1181 @@
+---
+title: "Visualizations"
+author: "Aaron Dantzler"
+date: "2023-08-04"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# 1. Load packages:
+library(tidytext) # contains sentiment lexicons
+library(tidyverse)
+
+#for corpus prep
+library(stringr)
+library(tm)
+library(stm)
+library(quanteda)
+library(textdata)
+
+#for visualizaiton
+library(ggplot2)
+library(psych)
+library(clipr)
+```
+
+```{r}
+# Set working directory and load data
+data <- read.csv("D:\\Princeton\\BSPL\\norms_sent_afinn.csv")
+```
+
+```{r}
+
+new_df <- data
+
+frq_topic <- c(new_df$frq_topic_t1, new_df$frq_topic_t2, new_df$frq_topic_t3)
+
+stacked_df <- data.frame(frq_topic)
+
+stacked_df$frq <- c(new_df$frq_t1, new_df$frq_t2, new_df$frq_t3)
+
+```
+
+```{r}
+
+time1 <- c(1)
+num_repetitions <- 616
+time1 <- rep(time1, times = num_repetitions)
+
+time2 <- c(2)
+time2 <- rep(time2, times = num_repetitions)
+
+time3 <- c(3)
+time3 <- rep(time3, times = num_repetitions)
+
+time <- c(time1, time2, time3)
+
+stacked_df$time <- time
+
+```
+
+```{r}
+
+stacked_df$prolific <- c(new_df$prolific, new_df$prolific, new_df$prolific)
+stacked_df$control <- c(new_df$control, new_df$control, new_df$control)
+stacked_df$treatment <- c(new_df$treatment, new_df$treatment, new_df$treatment)
+
+```
+
+```{r}
+
+stacked_df$treated <- ifelse(((data$control == "climate") & 
+                              (data$frq_topic_t1 == 1 | data$frq_topic_t1 == 2)),
+                            0, 
+                      ifelse(((data$control == "health") & 
+                              (data$frq_topic_t1 == 4 | data$frq_topic_t1 == 5)),
+                            0,
+                       ifelse(((data$control == "politics") & 
+                              (data$frq_topic_t1 == 5 | data$frq_topic_t1 == 6)),
+                            0, 1)))
+
+```
+
+```{r}
+
+stacked_df$evidence <- ifelse((stacked_df$treated == 1) &
+                                (stacked_df$treatment == "evidence"), 1, 0)
+
+stacked_df$normevidence <- ifelse((stacked_df$treated == 1) &
+                                (stacked_df$treatment == "normevidence"), 1, 0)
+
+stacked_df$norm <- ifelse((stacked_df$treated == 1) &
+                                (stacked_df$treatment == "norm"), 1, 0)
+                         
+
+```
+
+```{r}
+stacked_df$doc_id <- 1:nrow(stacked_df)
+```
+
+```{r}
+docs_df <- subset(stacked_df, select = c(frq, frq_topic, time, prolific, control, treatment, treated, evidence, normevidence, norm))
+
+colnames(docs_df)[colnames(docs_df) == "frq"] <- "text"
+```
+
+# All Data
+
+```{r include=FALSE}
+library(tidytext)
+tidy <- docs_df %>%
+  unnest_tokens(word, text)
+```
+
+```{r}
+data(stop_words)
+
+tidy <- tidy %>%
+  anti_join(stop_words)
+```
+```{r include=FALSE}
+tidy %>%
+  count(word, sort = TRUE)
+```
+
+```{r}
+library(ggplot2)
+
+tidy %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 400) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+```
+
+```{r}
+tidy_treated <- subset(tidy, treated == 1)
+tidy_untreated <- subset(tidy, treated == 0)
+```
+
+```{r include=FALSE}
+tidy_treated %>%
+  count(word, sort = TRUE)
+```
+
+```{r}
+library(ggplot2)
+
+tidy_treated %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 200) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+```
+
+
+```{r include=FALSE}
+tidy_untreated %>%
+  count(word, sort = TRUE)
+```
+
+```{r}
+tidy_untreated %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 100) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+```
+
+```{r include=FALSE}
+library(tidyr)
+
+frequency <- bind_rows(mutate(tidy_treated, treatment = "treated"),
+                       mutate(tidy_untreated, treatment = "untreated")) %>% 
+  mutate(word = str_extract(word, "[a-z']+")) %>%
+  count(treatment, word) %>%
+  group_by(treatment) %>%
+  mutate(proportion = n / sum(n)) %>% 
+  select(-n) %>% 
+  pivot_wider(names_from = treatment, values_from = proportion) %>%
+  pivot_longer(`untreated`,
+               names_to = "treatment", values_to = "proportion")
+
+```
+
+```{r}
+library(scales)
+
+# expect a warning about rows with missing values being removed
+ggplot(frequency, aes(x = proportion, y = `treated`, 
+                      color = abs(`treated` - proportion))) +
+  geom_abline(color = "gray40", lty = 2) +
+  geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+  geom_text(aes(label = word), check_overlap = TRUE, vjust = 1.5) +
+  scale_x_log10(labels = percent_format()) +
+  scale_y_log10(labels = percent_format()) +
+  scale_color_gradient(limits = c(0, 0.001), 
+                       low = "darkslategray4", high = "gray75") +
+  facet_wrap(~treatment, ncol = 2) +
+  theme(legend.position="none") +
+  labs(y = "treated", x = NULL)
+```
+
+
+## Words above the line are associated more with treated. Below associated with untreated.
+
+```{r include=FALSE}
+bing_word_counts <- tidy %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+
+```
+
+```{r}
+bing_word_counts %>%
+  group_by(sentiment) %>%
+  slice_max(n, n = 10) %>% 
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Contribution to sentiment",
+       y = NULL)
+```
+
+```{r include=FALSE}
+bing_word_counts <- tidy_treated %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+
+```
+
+```{r}
+bing_word_counts %>%
+  group_by(sentiment) %>%
+  slice_max(n, n = 10) %>% 
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Contribution to sentiment",
+       y = NULL)
+```
+
+```{r include=FALSE}
+bing_word_counts <- tidy_untreated %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+
+
+```
+
+```{r}
+bing_word_counts %>%
+  group_by(sentiment) %>%
+  slice_max(n, n = 10) %>% 
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Contribution to sentiment",
+       y = NULL)
+```
+
+```{r}
+library(wordcloud)
+
+tidy %>%
+  anti_join(stop_words) %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100))
+```
+
+```{r}
+library(reshape2)
+
+tidy %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 100)
+```
+
+```{r}
+library(wordcloud)
+
+tidy_treated %>%
+  anti_join(stop_words) %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100))
+```
+
+```{r}
+library(reshape2)
+
+tidy_treated %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 100)
+```
+
+```{r}
+library(wordcloud)
+
+tidy_untreated %>%
+  anti_join(stop_words) %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100))
+```
+
+```{r}
+library(reshape2)
+
+tidy_untreated %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 100)
+```
+
+
+# tf_idf, term frequency and inverse document frequency tells us the words that are important for a document but are not important for the corpus as a whole. Filters out common words that many documents use.
+
+```{r}
+tidy_words <- tidy %>%
+  count(treated, word, sort = TRUE)
+```
+
+
+```{r include=FALSE}
+tidy_tf_idf <- tidy_words %>%
+  bind_tf_idf(word, treated, n)
+
+```
+
+```{r include=FALSE}
+tidy_tf_idf %>%
+  arrange(desc(tf_idf))
+```
+
+```{r}
+library(forcats)
+
+tidy_tf_idf %>%
+  group_by(treated) %>%
+  slice_max(tf_idf, n = 15) %>%
+  ungroup() %>%
+  ggplot(aes(tf_idf, fct_reorder(word, tf_idf), fill = treated)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~treated, ncol = 2, scales = "free") +
+  labs(x = "tf-idf", y = NULL)
+```
+
+# Climate Only
+
+```{r include=FALSE}
+library(tidytext)
+tidy <- docs_df %>%
+  unnest_tokens(word, text)
+
+tidy <- subset(tidy, frq_topic %in% c(1, 2))
+
+```
+
+```{r}
+data(stop_words)
+
+tidy <- tidy %>%
+  anti_join(stop_words)
+```
+```{r include=FALSE}
+tidy %>%
+  count(word, sort = TRUE) 
+```
+
+```{r}
+library(ggplot2)
+
+tidy %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 50) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+```
+
+```{r}
+tidy_treated <- subset(tidy, treated == 1)
+tidy_untreated <- subset(tidy, treated == 0)
+```
+
+```{r include=FALSE}
+tidy_treated %>%
+  count(word, sort = TRUE) 
+```
+
+```{r}
+library(ggplot2)
+
+tidy_treated %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 30) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+```
+
+
+```{r include=FALSE}
+tidy_untreated %>%
+  count(word, sort = TRUE) 
+```
+
+```{r}
+tidy_untreated %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 20) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+```
+
+```{r include=FALSE}
+library(tidyr)
+
+frequency <- bind_rows(mutate(tidy_treated, treatment = "treated"),
+                       mutate(tidy_untreated, treatment = "untreated")) %>% 
+  mutate(word = str_extract(word, "[a-z']+")) %>%
+  count(treatment, word) %>%
+  group_by(treatment) %>%
+  mutate(proportion = n / sum(n)) %>% 
+  select(-n) %>% 
+  pivot_wider(names_from = treatment, values_from = proportion) %>%
+  pivot_longer(`untreated`,
+               names_to = "treatment", values_to = "proportion")
+```
+
+```{r}
+library(scales)
+
+# expect a warning about rows with missing values being removed
+ggplot(frequency, aes(x = proportion, y = `treated`, 
+                      color = abs(`treated` - proportion))) +
+  geom_abline(color = "gray40", lty = 2) +
+  geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+  geom_text(aes(label = word), check_overlap = TRUE, vjust = 1.5) +
+  scale_x_log10(labels = percent_format()) +
+  scale_y_log10(labels = percent_format()) +
+  scale_color_gradient(limits = c(0, 0.001), 
+                       low = "darkslategray4", high = "gray75") +
+  facet_wrap(~treatment, ncol = 2) +
+  theme(legend.position="none") +
+  labs(y = "treated", x = NULL)
+```
+
+
+## Words above the line are associated more with treated. Below associated with untreated.
+
+```{r include=FALSE}
+bing_word_counts <- tidy %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+
+
+```
+
+```{r}
+bing_word_counts %>%
+  group_by(sentiment) %>%
+  slice_max(n, n = 10) %>% 
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Contribution to sentiment",
+       y = NULL)
+```
+
+```{r include=FALSE}
+bing_word_counts <- tidy_treated %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+
+
+```
+
+```{r}
+bing_word_counts %>%
+  group_by(sentiment) %>%
+  slice_max(n, n = 10) %>% 
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Contribution to sentiment",
+       y = NULL)
+```
+
+```{r include=FALSE}
+bing_word_counts <- tidy_untreated %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+
+
+```
+
+```{r}
+bing_word_counts %>%
+  group_by(sentiment) %>%
+  slice_max(n, n = 10) %>% 
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Contribution to sentiment",
+       y = NULL)
+```
+
+```{r}
+library(wordcloud)
+
+tidy %>%
+  anti_join(stop_words) %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100))
+```
+
+```{r}
+library(reshape2)
+
+tidy %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 100)
+```
+
+```{r}
+library(wordcloud)
+
+tidy_treated %>%
+  anti_join(stop_words) %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100))
+```
+
+```{r}
+library(reshape2)
+
+tidy_treated %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 100)
+```
+
+```{r}
+library(wordcloud)
+
+tidy_untreated %>%
+  anti_join(stop_words) %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100))
+```
+
+```{r}
+library(reshape2)
+
+tidy_untreated %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 100)
+```
+
+
+# tf_idf, term frequency and inverse document frequency tells us the words that are important for a document but are not important for the corpus as a whole. Filters out common words that many documents use.
+
+```{r}
+tidy_words <- tidy %>%
+  count(treated, word, sort = TRUE)
+```
+
+
+```{r include=FALSE}
+tidy_tf_idf <- tidy_words %>%
+  bind_tf_idf(word, treated, n)
+
+
+```
+
+```{r include=FALSE}
+tidy_tf_idf %>%
+  arrange(desc(tf_idf))
+```
+
+```{r}
+library(forcats)
+
+tidy_tf_idf %>%
+  group_by(treated) %>%
+  slice_max(tf_idf, n = 15) %>%
+  ungroup() %>%
+  ggplot(aes(tf_idf, fct_reorder(word, tf_idf), fill = treated)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~treated, ncol = 2, scales = "free") +
+  labs(x = "tf-idf", y = NULL)
+```
+
+# Health Only
+
+```{r include=FALSE}
+library(tidytext)
+tidy <- docs_df %>%
+  unnest_tokens(word, text)
+
+tidy <- subset(tidy, frq_topic %in% c(3, 4))
+
+
+```
+
+```{r}
+data(stop_words)
+
+tidy <- tidy %>%
+  anti_join(stop_words)
+```
+```{r include=FALSE}
+tidy %>%
+  count(word, sort = TRUE) 
+```
+
+```{r}
+library(ggplot2)
+
+tidy %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 400) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+```
+
+```{r}
+tidy_treated <- subset(tidy, treated == 1)
+tidy_untreated <- subset(tidy, treated == 0)
+```
+
+```{r include=FALSE}
+tidy_treated %>%
+  count(word, sort = TRUE) 
+```
+
+```{r}
+library(ggplot2)
+
+tidy_treated %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 200) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+```
+
+
+```{r include=FALSE}
+tidy_untreated %>%
+  count(word, sort = TRUE) 
+```
+
+```{r}
+tidy_untreated %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 50) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+```
+
+```{r include=FALSE}
+library(tidyr)
+
+frequency <- bind_rows(mutate(tidy_treated, treatment = "treated"),
+                       mutate(tidy_untreated, treatment = "untreated")) %>% 
+  mutate(word = str_extract(word, "[a-z']+")) %>%
+  count(treatment, word) %>%
+  group_by(treatment) %>%
+  mutate(proportion = n / sum(n)) %>% 
+  select(-n) %>% 
+  pivot_wider(names_from = treatment, values_from = proportion) %>%
+  pivot_longer(`untreated`,
+               names_to = "treatment", values_to = "proportion")
+
+
+```
+
+```{r}
+library(scales)
+
+# expect a warning about rows with missing values being removed
+ggplot(frequency, aes(x = proportion, y = `treated`, 
+                      color = abs(`treated` - proportion))) +
+  geom_abline(color = "gray40", lty = 2) +
+  geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+  geom_text(aes(label = word), check_overlap = TRUE, vjust = 1.5) +
+  scale_x_log10(labels = percent_format()) +
+  scale_y_log10(labels = percent_format()) +
+  scale_color_gradient(limits = c(0, 0.001), 
+                       low = "darkslategray4", high = "gray75") +
+  facet_wrap(~treatment, ncol = 2) +
+  theme(legend.position="none") +
+  labs(y = "treated", x = NULL)
+```
+
+
+## Words above the line are associated more with treated. Below associated with untreated.
+
+```{r include=FALSE}
+bing_word_counts <- tidy %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+
+
+```
+
+```{r}
+bing_word_counts %>%
+  group_by(sentiment) %>%
+  slice_max(n, n = 10) %>% 
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Contribution to sentiment",
+       y = NULL)
+```
+
+```{r include=FALSE}
+bing_word_counts <- tidy_treated %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+
+
+```
+
+```{r}
+bing_word_counts %>%
+  group_by(sentiment) %>%
+  slice_max(n, n = 10) %>% 
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Contribution to sentiment",
+       y = NULL)
+```
+
+```{r include=FALSE}
+bing_word_counts <- tidy_untreated %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+
+
+```
+
+```{r}
+bing_word_counts %>%
+  group_by(sentiment) %>%
+  slice_max(n, n = 10) %>% 
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Contribution to sentiment",
+       y = NULL)
+```
+
+```{r}
+library(wordcloud)
+
+tidy %>%
+  anti_join(stop_words) %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100))
+```
+
+```{r}
+library(reshape2)
+
+tidy %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 100)
+```
+
+```{r}
+library(wordcloud)
+
+tidy_treated %>%
+  anti_join(stop_words) %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100))
+```
+
+```{r}
+library(reshape2)
+
+tidy_treated %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 100)
+```
+
+```{r}
+library(wordcloud)
+
+tidy_untreated %>%
+  anti_join(stop_words) %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100))
+```
+
+```{r}
+library(reshape2)
+
+tidy_untreated %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 100)
+```
+
+
+# tf_idf, term frequency and inverse document frequency tells us the words that are important for a document but are not important for the corpus as a whole. Filters out common words that many documents use.
+
+```{r}
+tidy_words <- tidy %>%
+  count(treated, word, sort = TRUE)
+```
+
+
+```{r include=FALSE}
+tidy_tf_idf <- tidy_words %>%
+  bind_tf_idf(word, treated, n)
+
+
+```
+
+```{r include=FALSE}
+tidy_tf_idf %>%
+  arrange(desc(tf_idf))
+```
+
+```{r}
+library(forcats)
+
+tidy_tf_idf %>%
+  group_by(treated) %>%
+  slice_max(tf_idf, n = 15) %>%
+  ungroup() %>%
+  ggplot(aes(tf_idf, fct_reorder(word, tf_idf), fill = treated)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~treated, ncol = 2, scales = "free") +
+  labs(x = "tf-idf", y = NULL)
+```
+
+# Politics Only
+
+```{r include=FALSE}
+library(tidytext)
+tidy <- docs_df %>%
+  unnest_tokens(word, text)
+
+tidy <- subset(tidy, frq_topic %in% c(5, 6))
+
+
+```
+
+```{r}
+data(stop_words)
+
+tidy <- tidy %>%
+  anti_join(stop_words)
+```
+```{r include=FALSE}
+tidy %>%
+  count(word, sort = TRUE) 
+```
+
+```{r}
+library(ggplot2)
+
+tidy %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 100) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+```
+
+```{r}
+tidy_treated <- subset(tidy, treated == 1)
+tidy_untreated <- subset(tidy, treated == 0)
+```
+
+```{r include=FALSE}
+tidy_treated %>%
+  count(word, sort = TRUE) 
+```
+
+```{r}
+library(ggplot2)
+
+tidy_treated %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 70) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+```
+
+
+```{r include=FALSE}
+tidy_untreated %>%
+  count(word, sort = TRUE) 
+```
+
+```{r}
+tidy_untreated %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 70) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+```
+
+```{r include=FALSE}
+library(tidyr)
+
+frequency <- bind_rows(mutate(tidy_treated, treatment = "treated"),
+                       mutate(tidy_untreated, treatment = "untreated")) %>% 
+  mutate(word = str_extract(word, "[a-z']+")) %>%
+  count(treatment, word) %>%
+  group_by(treatment) %>%
+  mutate(proportion = n / sum(n)) %>% 
+  select(-n) %>% 
+  pivot_wider(names_from = treatment, values_from = proportion) %>%
+  pivot_longer(`untreated`,
+               names_to = "treatment", values_to = "proportion")
+
+
+```
+
+```{r}
+library(scales)
+
+# expect a warning about rows with missing values being removed
+ggplot(frequency, aes(x = proportion, y = `treated`, 
+                      color = abs(`treated` - proportion))) +
+  geom_abline(color = "gray40", lty = 2) +
+  geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+  geom_text(aes(label = word), check_overlap = TRUE, vjust = 1.5) +
+  scale_x_log10(labels = percent_format()) +
+  scale_y_log10(labels = percent_format()) +
+  scale_color_gradient(limits = c(0, 0.001), 
+                       low = "darkslategray4", high = "gray75") +
+  facet_wrap(~treatment, ncol = 2) +
+  theme(legend.position="none") +
+  labs(y = "treated", x = NULL)
+```
+
+
+## Words above the line are associated more with treated. Below associated with untreated.
+
+```{r include=FALSE}
+bing_word_counts <- tidy %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+
+
+```
+
+```{r}
+bing_word_counts %>%
+  group_by(sentiment) %>%
+  slice_max(n, n = 10) %>% 
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Contribution to sentiment",
+       y = NULL)
+```
+
+```{r include=FALSE}
+bing_word_counts <- tidy_treated %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+
+
+```
+
+```{r}
+bing_word_counts %>%
+  group_by(sentiment) %>%
+  slice_max(n, n = 10) %>% 
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Contribution to sentiment",
+       y = NULL)
+```
+
+```{r include=FALSE}
+bing_word_counts <- tidy_untreated %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+
+
+```
+
+```{r}
+bing_word_counts %>%
+  group_by(sentiment) %>%
+  slice_max(n, n = 10) %>% 
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Contribution to sentiment",
+       y = NULL)
+```
+
+```{r}
+library(wordcloud)
+
+tidy %>%
+  anti_join(stop_words) %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100))
+```
+
+```{r}
+library(reshape2)
+
+tidy %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 100)
+```
+
+```{r}
+library(wordcloud)
+
+tidy_treated %>%
+  anti_join(stop_words) %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100))
+```
+
+```{r}
+library(reshape2)
+
+tidy_treated %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 100)
+```
+
+```{r}
+library(wordcloud)
+
+tidy_untreated %>%
+  anti_join(stop_words) %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100))
+```
+
+```{r}
+library(reshape2)
+
+tidy_untreated %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 100)
+```
+
+
+# tf_idf, term frequency and inverse document frequency tells us the words that are important for a document but are not important for the corpus as a whole. Filters out common words that many documents use.
+
+```{r}
+tidy_words <- tidy %>%
+  count(treated, word, sort = TRUE)
+```
+
+
+```{r include=FALSE}
+tidy_tf_idf <- tidy_words %>%
+  bind_tf_idf(word, treated, n)
+
+```
+
+```{r include=FALSE}
+tidy_tf_idf %>%
+  arrange(desc(tf_idf))
+```
+
+```{r}
+library(forcats)
+
+tidy_tf_idf %>%
+  group_by(treated) %>%
+  slice_max(tf_idf, n = 15) %>%
+  ungroup() %>%
+  ggplot(aes(tf_idf, fct_reorder(word, tf_idf), fill = treated)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~treated, ncol = 2, scales = "free") +
+  labs(x = "tf-idf", y = NULL)
+```
