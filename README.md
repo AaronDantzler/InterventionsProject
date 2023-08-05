@@ -80,13 +80,27 @@ Additionally, the treated group tended to focus on more economic words such as t
 ![image](https://github.com/AaronDantzler/InterventionsProject/assets/113250815/6464c7af-978f-4d94-917c-35864634daa8)
 
 ## normsSTM.rmd
-The last file is normsSTM.rmd
+The last file is normsSTM.rmd, where I used the Structural Topic Model on the data to identify how treatment would influence the topics respondents talked about in their FRQ responses. In particular, I used the document sentiment from the previous DTMSentimentAnalysis as a content variable to allow the words used within a topic to vary based on topic sentiment, which creates more extreme topics (without this content variable, the topics that come up when estimating the Structural Topic Model on something like the climate data only are all about plastic bags, which does not help us at all).
 
+### Climate Only Data
+Looking first at the Climate Only Data, most respondents did not actually choose to talk about this topic so the sample size was much smaller leading to high std. errors. 
 
+![image](https://github.com/AaronDantzler/InterventionsProject/assets/113250815/9ce1fd15-76e9-4525-ab18-b61e8e4fc8b9)
 
+An interesting finding is that people who received treatment tending to use topics that included words such as Bad/Terrible and Serious/Impossible, but also Reusable/Easy, so there is some polarization among the treated respondents.
 
+### Health Only Data
 
+![image](https://github.com/AaronDantzler/InterventionsProject/assets/113250815/7848b053-93ee-4e12-b3ea-cd3d0150701b)
 
-  
+In the Health Only Data, one interesting result was the emphasis of the treated group on topics such as technology and Uber/Lyft as a potential solutions to the issue of drunk driving. The treated group also talked a lot about a topic that included the words wheel and impossible, suggesting a negative outlook on the issue of drunk driving.
 
+### Politics Only Data
 
+![image](https://github.com/AaronDantzler/InterventionsProject/assets/113250815/e6f54144-331c-41b9-9b30-5fd9c3721c3a)
+
+In the Politics Only Data, we noticed some of the same trends as in the previous Visualizations. The treated group significantly talked more about issues about the economy and poverty and things like bills and prices, while the untreated group focused on more overt political topics such as democracy and voting issues.
+
+![image](https://github.com/AaronDantzler/InterventionsProject/assets/113250815/b228ec0c-dd9d-4973-ba94-887e89ef55a9)
+
+It is also interesting how some of these topics correlated together, with Democracy being correlated with Corruption and Unfairness as well as Economic issues, and also the Mail and Voter Restriction topic being associated with Conservatives.
