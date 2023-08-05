@@ -1,6 +1,7 @@
 # BSPL Interventions Project
 In the first file NormEvidenceInterventions.rmd, the first thing I did was try to regress Chosen Topic ~ Topic Importance. 
 The most important regression I found was this: 
+
 ![image](https://github.com/AaronDantzler/InterventionsProject/assets/113250815/25e4d27e-b5c0-4ffc-a1d8-a78a0a00a888) 
 This uses a multinomial logistic regression model, and the interpretation is that an increase of the importance of a topic significant predicted the topic being chosen, which makes sense. I then tried regressing both Chosen Topic ~ Time and Topic Importance ~ Time but did not find a significant relationship. I also tried regressing both Chosen Topic and Topic Importance on Treatment, which we might expect Treatment to increase Topic Importance and the probability of a Topic being Chosen, but I did not find a significant relationship.
 In the second file, normsANOVA, I tried to see if Treatment or Time had a significant relationship on Topic Importance (which have seen previously that Topic Importance has a strong positive relationship with Chosen Topic). However, using a two-way repeated measures ANOVA, there was no significant difference between the means of the treatment groups over time. 
