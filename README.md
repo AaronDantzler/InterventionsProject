@@ -104,3 +104,8 @@ In the Politics Only Data, we noticed some of the same trends as in the previous
 ![image](https://github.com/AaronDantzler/InterventionsProject/assets/113250815/b228ec0c-dd9d-4973-ba94-887e89ef55a9)
 
 It is also interesting how some of these topics correlated together, with Democracy being correlated with Corruption and Unfairness as well as Economic issues, and also the Mail and Voter Restriction topic being associated with Conservatives.
+
+# Sources
+https://cran.r-project.org/web/packages/stm/vignettes/stmVignette.pdf
+https://www.tidytextmining.com/
+https://rpubs.com/vipero7/introduction-to-text-mining-with-r
